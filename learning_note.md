@@ -19,4 +19,15 @@ There is a third type of data file called Unstructured data. (File names will ha
 
 Snowflake's goal is to make it very easy for you to combine all three types of data so that you can analyze and process it together rather than needing to use multiple tools to do your data work. 
 
- Rapid Prototyping techniques for her Proof of Concept.
+ Rapid Prototyping techniques Proof of Concept.
+
+ A Proof of Concept usually doesn't require perfect data structures, it needs just enough data development to show a concept or idea to others, and give them a rough idea of how the app would behave or work. Zena agrees that using rapid development techniques sounds good. 
+
+External Stage Object --> S3 Bucket
+
+https://uni-klaus.s3.us-west-2.amazonaws.com/
+
+https://uni-klaus.s3.us-west-2.amazonaws.com/clothing/90s_tracksuit.png
+
+s3 bucket
+s3://uni-klaus/clothing
