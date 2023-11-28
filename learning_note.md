@@ -31,3 +31,51 @@ https://uni-klaus.s3.us-west-2.amazonaws.com/clothing/90s_tracksuit.png
 
 s3 bucket
 s3://uni-klaus/clothing
+
+That's right aws bucket names are globaly unique. No other AWS account will have the same bucket name
+
+And the same applies for Azure and GCS blob storage alternatives. All of them are unique within given cloud provider across all regions.
+
+s3://uni-klaus/zenas_metadata
+
+s3://uni-klaus/sneakers
+
+
+When we first learned about stages and the staging of files, we said that Snowflake Internal tables (regular tables) were like the shelving in a real-world warehouse. With tables being a place where we would very deliberately place our data for long-term storage. We also claimed that the yellow areas on the floor of a a warehouse were like stages in Snowflake. 
+
+
+By the time we finished Badge 2: Data Application Builders Workshop, Mel understood the difference between External and Internal Stages, how to set them up and use them. He also understood that when we talk about "Stages" there are actually 3 parts. The cloud folder is the stage's storage location, the files within those locations are "staged data", and the objects we create in Snowflake are not locations, instead they are connections to cloud folders - which metaphorically can also be called "windows", or shown as loading bay doors on diagrams. 
+
+As it turns out, a Snowflake Stage Object can be used to connect to and access files and data you never intend to load!!! 
+
+Zena can create a stage that points to an external bucket. Then, instead of pulling data through the stage into a table, she can reach through the stage to access and analyze the data where it is already sitting.
+
+She does not have to load data, she can leave it where it is already stored, but still access it AND if she uses a File Format, she can make it appear almost as if it is actually loaded! (weird, but true!) 
+
+REDEFINING THE WORD "STAGE" FOR SNOWFLAKE ADVANCED USE
+
+We already know that in the wider world of Data Warehousing, we can use the word "stage" to mean "a temporary storage location", and we can also use "stage" to mean a cloud folder where data is stored -- but now, more than ever, we should open our mind to the idea that a defined Snowflake Stage Object is most accurately thought of as a named gateway into a cloud folder where, presumably, data files are stored either short OR long term. 
+
+Named Gateway to access cloud folder
+
+In this lesson, you'll learn different things you can do  with data even when you don't load it. We'll call it "non-loaded" so that we can separate the concept of data that is loaded into Snowflake and then output back into a stage using an "unload" process. This data that is NEVER loaded, we'll call "non-loaded." 
+
+list @UNI_KLAUS_ZMD;
+
+
+select $1 from @UNI_KLAUS_ZMD/product_coordination_suggestions.txt
+
+Snowflake hasn't been told anything about how the data in these files is structured so it's just making assumptions.  Snowflake is presuming that the files are CSVs because CSVs are a very popular file-formatting choice. It's also presuming each row ends with CRLF (Carriage Return Line Feed) because CRLF is also very common as a row delimiter.
+
+Snowflake hedges its bets and presumes if you don't tell it anything about your file, the file is probably a standard CSV.
+
+By using these assumptions, Snowflake treats the product_coordination_suggestions.txt file as if it only has one column and one row. 
+
+carets (^) 
+
+create file format zmd_file_format_1
+RECORD_DELIMITER = '^';
+
+select $1
+from @uni_klaus_zmd/product_coordination_suggestions.txt
+(file_format => zmd_file_format_1);
