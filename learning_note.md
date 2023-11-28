@@ -79,3 +79,57 @@ RECORD_DELIMITER = '^';
 select $1
 from @uni_klaus_zmd/product_coordination_suggestions.txt
 (file_format => zmd_file_format_1);
+
+create file format zmd_file_format_2
+FIELD_DELIMITER = '^';  
+
+create file format zmd_file_format_3
+FIELD_DELIMITER = '='
+RECORD_DELIMITER = '^'; 
+
+create file format zmd_file_format_3
+FIELD_DELIMITER = '='
+RECORD_DELIMITER = '^'; 
+
+select $1,$2,$3 
+from @uni_klaus_zmd/product_coordination_suggestions.txt
+(file_format => zmd_file_format_3);
+
+
+create or replace file format zmd_file_format_1
+RECORD_DELIMITER = ';';
+
+create or replace file format zmd_file_format_2
+FIELD_DELIMITER = '|'
+RECORD_DELIMITER = ';'
+TRIM_SPACE = True;
+
+select $1,$2,$3 
+from @uni_klaus_zmd/swt_product_line.txt
+(file_format => zmd_file_format_2);
+
+
+
+create or replace file format zmd_file_format_1
+RECORD_DELIMITER = ';'
+TRIM_SPACE = True;
+
+select replace($1,chr(13)||chr(10)) as sizes_available
+from @uni_klaus_zmd/sweatsuit_sizes.txt
+(file_format => zmd_file_format_1 )
+where sizes_available<>'';
+
+
+create or replace view zenas_athleisure_db.products.sweatsuit_sizes as 
+select replace($1,chr(13)||chr(10)) as sizes_available
+from @uni_klaus_zmd/sweatsuit_sizes.txt
+(file_format => zmd_file_format_1 )
+where sizes_available<>'';
+
+create or replace view zenas_athleisure_db.products.SWEATBAND_PRODUCT_LINE as 
+select replace($1,chr(13)||chr(10)) as PRODUCT_CODE,$2 as HEADBAND_DESCRIPTION,$3 as WRISTBAND_DESCRIPTION
+from @uni_klaus_zmd/swt_product_line.txt
+(file_format => zmd_file_format_2);
+
+select replace(replace(replace(UPPER(RELATIVE_PATH),'/'),'_',' '),'.PNG') as PRPDUCT_NAME
+from directory(@uni_klaus_clothing);
