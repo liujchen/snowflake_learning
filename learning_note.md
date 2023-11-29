@@ -133,3 +133,55 @@ from @uni_klaus_zmd/swt_product_line.txt
 
 select replace(replace(replace(UPPER(RELATIVE_PATH),'/'),'_',' '),'.PNG') as PRPDUCT_NAME
 from directory(@uni_klaus_clothing);
+
+https://uni-klaus.s3.us-west-2.amazonaws.com/clothing
+
+We can do this with a quick CROSS JOIN.  Cross Joins are also called "cartesian products" and many times when data professionals talk about cartesian products they are describing a bad join that resulted in many more records than they intended. In this case, though, the cartesian product (multiplicative) is our goal.
+
+
+
+select color_or_style
+, direct_url
+, price
+, size as image_size
+, last_modified as image_last_modified
+, sizes_available
+from sweatsuits 
+join directory(@uni_klaus_clothing) 
+on relative_path = SUBSTR(direct_url,54,50)
+cross join sweatsuit_sizes;
+
+select b.color_or_style
+,b.direct_url
+,b.price
+,a.size as image_size
+,a.last_modified as image_last_modified
+from directory(@uni_klaus_clothing) a
+JOIN ZENAS_ATHLEISURE_DB.PRODUCTS.SWEATSUITS b
+ON replace(b.DIRECT_URL,'https://uni-klaus.s3.us-west-2.amazonaws.com/clothing') = a.RELATIVE_PATH;
+
+I used 'contains' function as below on join. contains (sw.direct_url, cl.relative_path)
+ DIRECT_URL LIKE '%' || RELATIVE_PATH ;
+
+The Data Lake metaphor was introduced to the world in 2011 by James Dixon, who was the Chief Technology Officer for a company called Pentaho, at that time.
+
+Dixon said:
+
+If you think of a data mart as a store of bottled water -- cleansed and packaged and structured for easy consumption -- the data lake is a large body of water in a more natural state. The contents of the data lake stream in from a source to fill the lake, and various users of the lake can come to examine, dive in, or take samples.
+
+When we talk about Data Lakes at Snowflake, we tend to mean data that has not been loaded into traditional Snowflake tables. We might also call these traditional tables "native" Snowflake tables, or "regular" tables. 
+
+As we've already seen, Structured and Semi-structured data that is sitting outside of Snowflake can be easily accessed and analyzed using familiar Snowflake tools like views, file formats, and SQL queries. 
+
+We've also seen how Unstructured data, not loaded into Snowflake, can be accessed with a special Snowflake tool called a Directory Table. We've also seen how Directory Tables can be used in combination with functions, joins, internal tables, and standard views to access that non-loaded data. 
+
+And through all this, we've seen that bringing together loaded and non-loaded data is a simple and seamless process.  When some data is loaded and some is left in a non-loaded state the two types can be joined and queried together, this is sometimes referred to as a Data Lakehouse. 
+
+
+### Lession 5
+
+select $1 from @trails_geojson
+(file_format => FF_JSON);
+
+select $1 from @trails_parquet
+(file_format => FF_parquet);
