@@ -185,3 +185,18 @@ select $1 from @trails_geojson
 
 select $1 from @trails_parquet
 (file_format => FF_parquet);
+
+
+USE ROLE ACCOUNTADMIN;
+GRANT USAGE ON INTEGRATION DORA_API_INTEGRATION TO ROLE SYSADMIN;
+
+
+select $1:sequence_1 as sequence_1,
+$1:trail_name as trail_name,
+$1:latitude as latitude,
+$1:longitude as longitude,
+$1:sequence_2 as sequence_2,
+$1:elevation as elevation
+from @trails_parquet
+(file_format => FF_parquet)
+order by $1:sequence_1;
