@@ -457,3 +457,51 @@ describe view mels_smoothie_challenge_db.trails.cherry_creek_trail;
 select get_ddl('view', 'mels_smoothie_challenge_db.trails.cherry_creek_trail');
 alter view mels_smoothie_challenge_db.trails.cherry_creek_trail
 rename to mels_smoothie_challenge_db.trails.v_cherry_creek_trail;
+
+
+create or replace external table mels_smoothie_challenge_db.trails.T_CHERRY_CREEK_TRAIL(
+	POINT_ID number as ($1:sequence_1::number),
+	TRAIL_NAME varchar(50) as  ($1:trail_name::varchar),
+	LNG number(11,8) as ($1:latitude::number(11,8)),
+	LAT number(11,8) as ($1:longitude::number(11,8)),
+	COORD_PAIR varchar(50) as (lng::varchar||' '||lat::varchar)
+) 
+location= @mels_smoothie_challenge_db.trails.trails_parquet
+auto_refresh = true
+file_format = mels_smoothie_challenge_db.trails.ff_parquet;
+
+create or replace external table mels_smoothie_challenge_db.trails.T_CHERRY_CREEK_TRAIL(
+	POINT_ID number as ($1:sequence_1::number),
+	TRAIL_NAME varchar(50) as  ($1:trail_name::varchar),
+	LNG number(11,8) as ($1:latitude::number(11,8)),
+	LAT number(11,8) as ($1:longitude::number(11,8)),
+	COORD_PAIR varchar(50) as (lng::varchar||' '||lat::varchar)
+) 
+location= @mels_smoothie_challenge_db.trails.trails_parquet
+auto_refresh = true
+file_format = mels_smoothie_challenge_db.trails.ff_parquet;
+
+select * from mels_smoothie_challenge_db.trails.T_CHERRY_CREEK_TRAIL;
+
+create or replace materialized view SMV_CHERRY_CREEK_TRAIL
+as select * from mels_smoothie_challenge_db.trails.T_CHERRY_CREEK_TRAIL;
+
+select * from SMV_CHERRY_CREEK_TRAIL;
+
+
+WORKSHOP 5
+
+alter user LIUJCHEN set default_role = 'SYSADMIN';
+alter user LIUJCHEN set default_warehouse = 'COMPUTE_WH';
+alter user LIUJCHEN set default_namespace = 'UTIL_DB.PUBLIC';
+
+create or replace TABLE AGS_GAME_AUDIENCE.RAW.GAME_LOGS (
+	RAW_LOG VARIANT
+);
+
+NOTE: Notice one of the names has a dash and the other has an underscore. It's easy to get this mixed up. AWS bucket names cannot have underscores. Snowflake stage names cannot have dashes!!
+
+select current_user();
+
+select $1 from @uni_kishore/kickoff
+(file_format => FF_JSON_LOGS);
