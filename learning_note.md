@@ -200,3 +200,260 @@ $1:elevation as elevation
 from @trails_parquet
 (file_format => FF_parquet)
 order by $1:sequence_1;
+
+Remember that Latitudes are between 0 (the equator)  and 90 (the poles) so no more than 2 digits are needed left of the decimal for latitude data.
+
+Longitudes are between 0 (the prime meridian) and 180. So no more than 3 digits are needed to the left of the decimal for longitude data.
+
+select 
+ $1:sequence_1 as point_id,
+ $1:trail_name::varchar as trail_name,
+ $1:latitude::number(11,8) as lng, --remember we did a gut check on this data
+ $1:longitude::number(11,8) as lat
+from @trails_parquet
+(file_format => ff_parquet)
+order by point_id;
+
+select $1:sequence_1 as sequence_1,
+$1:trail_name::varchar as trail_name,
+$1:latitude::number(11,8) as longitude,
+$1:longitude::number(11,8) as latitude,
+$1:sequence_2 as sequence_2,
+$1:elevation as elevation
+from @trails_parquet
+(file_format => FF_parquet)
+order by $1:sequence_1;
+
+
+select top 100
+lng||' '||lat as coord_pair,
+'POINT('||coord_pair||')' as trail_point
+from cherry_creek_trail;
+
+create or replace view cherry_creek_trail as
+select 
+ $1:sequence_1 as point_id,
+ $1:trail_name::varchar as trail_name,
+ $1:latitude::number(11,8) as lng,
+ $1:longitude::number(11,8) as lat,
+ lng||' '||lat as coord_pair
+from @trails_parquet
+(file_format => ff_parquet)
+order by point_id;
+
+select 
+'LINESTRING('||
+listagg(coord_pair, ',') 
+within group (order by point_id)
+||')' as my_linestring
+from cherry_creek_trail
+where point_id <= 10
+group by trail_name;
+
+select
+$1:features[0]:properties:Name::string as feature_name
+,$1:features[0]:geometry:coordinates::string as feature_coordinates
+,$1:features[0]:geometry::string as geometry
+,$1:features[0]:properties::string as feature_properties
+,$1:crs:properties:name::string as specs
+,$1 as whole_object
+from @trails_geojson (file_format => ff_json);
+
+select 
+'LINESTRING('||
+listagg(coord_pair, ',') 
+within group (order by point_id)
+||')' as my_linestring
+,st_length(TO_GEOGRAPHY(my_linestring)) as length_of_trail --this line is new! but it won't work!
+from cherry_creek_trail
+group by trail_name;
+
+
+DENVER_AREA_TRAILS
+
+
+create or replace view DENVER_AREA_TRAILS( FEATURE_NAME, FEATURE_COORDINATES, GEOMETRY, FEATURE_PROPERTIES, SPECS, WHOLE_OBJECT ) as select $1:features[0]:properties:Name::string as feature_name ,$1:features[0]:geometry:coordinates::string as feature_coordinates ,$1:features[0]:geometry::string as geometry ,$1:features[0]:properties::string as feature_properties ,$1:crs:properties:name::string as specs ,$1 as whole_object from @trails_geojson (file_format => ff_json);
+
+
+
+Remember that we've done a lot of cool things even though we still haven't loaded any of this data!!
+
+We have left the data where it landed (when Camila downloaded it from her fitness-tracking watch). And we have layered structure into our queries using file formats and views. We're not saying this is a great way to engineer data, we're teaching you about all the tools in the leave-it-where-it-lands toolbox.
+
+And again, does it feel a little kluge-y sometimes? Yes! But depending on the project team, and the setting, and the project deadline - these no-loading tools might save you from spending critical time on the wrong tasks.
+
+So, let's keep pushing the limits of this leave-it-where-it-lands strategy and layer on a little more of what we need to meet our goals. 
+
+Let's try to get the data from CHERRY_CREEK_TRAIL and DENVER_AREA_TRAILS to look enough alike that we can run some GeoSpatial functions on all 5 trails at one time!
+
+
+https://geojson.io/#map=12.06/39.65341/-105.08187
+
+https://clydedacruz.github.io/openstreetmap-wkt-playground/
+
+
+Sonra
+NOTE: You will need to switch your role to ACCOUNTADMIN to get the share added to your trial. 
+
+//Openstreet Map Denver
+// Give me the length of a Way
+SELECT
+ID,
+ST_LENGTH(COORDINATES) AS LENGTH
+FROM DENVER.V_OSM_DEN_WAY;
+
+// List the number of nodes in a Way
+SELECT
+ID,
+ST_NPOINTS(COORDINATES) AS NUM_OF_NODES
+FROM DENVER.V_OSM_DEN_WAY;
+
+// Give me the distance between two Ways
+SELECT
+ A.ID AS ID_1,
+ B.ID AS ID_2,
+ ST_DISTANCE(A.COORDINATES, B.COORDINATES) AS DISTANCE
+FROM (SELECT
+ ID,
+ COORDINATES
+FROM DENVER.V_OSM_DEN_WAY
+WHERE ID = 705859567) AS A
+INNER JOIN (SELECT
+ ID,
+ COORDINATES
+FROM DENVER.V_OSM_DEN_WAY
+WHERE ID = 705859570) AS B;
+
+// Give me all amenities from education category in a radius of 2,000 metres from a point
+SELECT
+*
+FROM DENVER.V_OSM_DEN_AMENITY_EDUCATION
+WHERE ST_DWITHIN(ST_POINT(-1.049212522000000e+02,
+    3.969829250000000e+01),COORDINATES,2000);
+
+// Give me all food and beverage Shops in a radius of 2,000 metres from a point
+
+SELECT
+*
+FROM DENVER.V_OSM_DEN_SHOP_FOOD_BEVERAGES  
+WHERE ST_DWITHIN(ST_POINT(-1.049632800000000e+02,
+    3.974338330000000e+01),COORDINATES,2000);
+
+-- Melanie's Location into a 2 Variables (mc for melanies cafe)
+set mc_lat='-104.97300245114094';
+set mc_lng='39.76471253574085';
+
+--Confluence Park into a Variable (loc for location)
+set loc_lat='-105.00840763333615'; 
+set loc_lng='39.754141917497826';
+
+--Test your variables to see if they work with the Makepoint function
+select st_makepoint($mc_lat,$mc_lng) as melanies_cafe_point;
+select st_makepoint($loc_lat,$loc_lng) as confluent_park_point;
+
+--use the variables to calculate the distance from 
+--Melanie's Cafe to Confluent Park
+select st_distance(
+        st_makepoint($mc_lat,$mc_lng)
+        ,st_makepoint($loc_lat,$loc_lng)
+        ) as mc_to_cp;
+
+
+set home_lng = '151.19314977286453';
+set home_lat = '-33.787922152622585';
+
+set bus_lat  = '-33.79262132726079';
+set bus_lng = '151.19460939102035';
+
+set train_lat = '-33.79767076522433';
+set train_lng = '151.18088000717145'; 
+
+--ST_MAKEPOINT( <longitude> , <latitude> )
+select st_makepoint($home_lng,$home_lat) as home_point;
+select st_makepoint($bus_lng,$bus_lat) as bus_point;
+
+select st_distance(
+        st_makepoint($home_lng,$home_lat)
+        ,st_makepoint($bus_lng,$bus_lat)
+        ) as home_to_bus;
+
+select st_distance(
+        st_makepoint($home_lng,$home_lat)
+        ,st_makepoint($train_lng,$train_lat)
+        ) as home_to_train;
+
+select st_distance(
+        st_makepoint($bus_lng,$bus_lat)
+        ,st_makepoint($train_lng,$train_lat)
+        ) as bus_to_train;
+
+
+
+13,405,887.8641714
+
+
+We've highlighted the changed parts in blue.
+
+
+CREATE OR REPLACE FUNCTION distance_to_mc(lat_and_lng GEOGRAPHY)
+  RETURNS FLOAT
+  AS
+  $$
+   st_distance(
+        st_makepoint('-104.97300245114094','39.76471253574085')
+        ,lat_and_lng
+        )
+  $$
+  ;
+🥋 Now We Can Use it In Our Sonra Select
+
+SELECT
+ name
+ ,cuisine
+ ,distance_to_mc(coordinates) AS distance_from_melanies
+ ,*
+FROM  competition
+ORDER by distance_from_melanies;
+
+If you are new to coding, you may not know about something called "overloading" a function. Overloading sounds like a bad thing, but it's actually pretty cool. 
+
+Basically, it means that you can have different ways of running the same function and Snowflake will figure out which way to run the UDF, based on what you send it. So if you send the UDF two numbers it will run our first version of the function and if you pass it one geography point, it will run the second version. 
+
+
+This means we can run the function several different ways and they will all result in the same answer.  When speaking about a FUNCTION plus its ARGUMENTS we can refer to it as the FUNCTION SIGNATURE. 
+
+-- Tattered Cover Bookstore McGregor Square
+set tcb_lat='-104.9956203'; 
+set tcb_lng='39.754874';
+
+--this will run the first version of the UDF
+select distance_to_mc($tcb_lat,$tcb_lng);
+
+--this will run the second version of the UDF, bc it converts the coords 
+--to a geography object before passing them into the function
+select distance_to_mc(st_makepoint($tcb_lat,$tcb_lng));
+
+--this will run the second version bc the Sonra Coordinates column
+-- contains geography objects already
+select name
+, distance_to_mc(coordinates) as distance_to_melanies 
+, ST_ASWKT(coordinates)
+from SONRA_DENVER_CO_USA_FREE.DENVER.V_OSM_DEN_SHOP
+where shop='books' 
+and name like '%Tattered Cover%'
+and addr_street like '%Wazee%';
+
+
+A Materialized View is like a view that is frozen in place (more or less looks and acts like a table).
+
+The big difference is that if some part of the underlying data changes,  Snowflake recognizes the need to refresh it, automatically.
+
+People often choose to create a materialized view if they have a view with intensive logic that they query often but that does NOT change often.  We can't use a Materialized view on any of our trails data because you can't put a materialized view directly on top of staged data. 
+
+
+select * from mels_smoothie_challenge_db.trails.cherry_creek_trail;
+describe view mels_smoothie_challenge_db.trails.cherry_creek_trail;
+
+select get_ddl('view', 'mels_smoothie_challenge_db.trails.cherry_creek_trail');
+alter view mels_smoothie_challenge_db.trails.cherry_creek_trail
+rename to mels_smoothie_challenge_db.trails.v_cherry_creek_trail;
