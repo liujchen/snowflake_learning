@@ -577,3 +577,135 @@ select current_timestamp();
 --show the account parameter called timezone
 show parameters like 'timezone';
 
+## Day 1 Dec 23
+
+You may see the term "schema-on-read" noted in some articles and posts as a great benefit Snowflake is able to provide. In a sense, you are seeing schema-on-read in action, here, because we can load anything we want into a VARIANT column, and parse it out (read it) differently over time. The change in the columns included (the schema difference in the two data loads) doesn't break anything because we are reading the structure after the load, not before or during the data load. 
+
+
+select * from logs
+WHERE USER_LOGIN ilike '%prajina%';
+
+
+select GRADER(step, (actual = expected), actual, expected, description) as graded_results from
+(
+SELECT
+   'DNGW02' as step
+   ,( select sum(tally) from(
+        select (count(*) * -1) as tally
+        from ags_game_audience.raw.logs 
+        union all
+        select count(*) as tally
+        from ags_game_audience.raw.game_logs)     
+     ) as actual
+   ,250 as expected
+   ,'View is filtered' as description
+); 
+
+
+When we created our LOG view, we parsed out the JSON into the separate columns. Parsing the data could be considered a transformation. 
+
+*** I like below comments ***
+In many organizations, a Data Engineer is given access to extracted data, and told what the end goals are (the final, transformed state). Then, it is within their power and discretion to decide what steps they will follow to get there. 
+
+These choices are called "design" and the structures and processes that result are called the "architecture." In this workshop we'll give you hands-on experience with the components, but design and architecture decisions are something it takes years to learn and we don't attempt to teach them in this beginner course. 
+
+Data Engineers often perform a series of ETL steps and so they have different "layers" where data is expected to have reached certain levels of refinement or transformation. In this workshop we'll have named our layers: 
+
+RAW
+ENHANCED ==>Enrichment :) 
+CURATED
+
+
+--Look up Kishore and Prajina's Time Zone in the IPInfo share using his headset's IP Address with the PARSE_IP function.
+select start_ip, end_ip, start_ip_int, end_ip_int, city, region, country, timezone
+from IPINFO_GEOLOC.demo.location
+where parse_ip('100.41.16.160', 'inet'):ipv4 --Kishore's Headset's IP Address
+BETWEEN start_ip_int AND end_ip_int;
+
+
+
+select parse_ip('100.41.16.160','inet');
+
+select parse_ip('107.217.231.17','inet'):host;
+
+select parse_ip('107.217.231.17','inet'):family;
+
+
+--Look up Kishore and Prajina's Time Zone in the IPInfo share using his headset's IP Address with the PARSE_IP function.
+select start_ip, end_ip, start_ip_int, end_ip_int, city, region, country, timezone
+from IPINFO_GEOLOC.demo.location
+where parse_ip('100.41.16.160', 'inet'):ipv4 --Kishore's Headset's IP Address
+BETWEEN start_ip_int AND end_ip_int;
+
+
+
+select logs.*
+       , loc.city
+       , loc.region
+       , loc.country
+       , loc.timezone
+from AGS_GAME_AUDIENCE.RAW.LOGS logs
+join IPINFO_GEOLOC.demo.location loc
+where parse_ip(logs.ip_address, 'inet'):ipv4 
+BETWEEN start_ip_int AND end_ip_int;
+
+
+
+Looking up time zones using the IPInfo Geolocation share is going to be an important part of Kishore's data pipeline. Even though IPInfo is giving away this data sample for free, anyone querying it will still pay Snowflake for the use of Warehouse time. 
+
+Of course, as a Trial Account User, you're not spending real money. Right now you're simply using up Free Trial Credits, but as a Data Engineer, you have to be able to write queries that don't work as hard, when they could get the same result set by working smart!
+
+After running a query, especially one that he plans to run often, Kishore will need to make sure it will be "performant." He can do that by examining the Query Profile of any command he runs.  Let's run some commands that might not perform all that well and then look at the query profiles for each. 
+
+
+The TO_JOIN_KEY function reduces the IP Down to an integer that is helpful for joining with a range of rows that might match our IP Address.
+The TO_INT function converts IP Addresses to integers so we don't have to try to compare them as strings! 
+
+
+SELECT logs.ip_address
+, logs.user_login
+, logs.user_event
+, logs.datetime_iso8601
+, city
+, region
+, country
+, timezone 
+from AGS_GAME_AUDIENCE.RAW.LOGS logs
+JOIN IPINFO_GEOLOC.demo.location loc 
+ON IPINFO_GEOLOC.public.TO_JOIN_KEY(logs.ip_address) = loc.join_key
+AND IPINFO_GEOLOC.public.TO_INT(logs.ip_address) 
+BETWEEN start_ip_int AND end_ip_int;
+
+
+create table ags_game_audience.raw.time_of_day_lu
+(  hour number
+   ,tod_name varchar(25)
+);
+
+--insert statement to add all 24 rows to the table
+insert into time_of_day_lu
+values
+(6,'Early morning'),
+(7,'Early morning'),
+(8,'Early morning'),
+(9,'Mid-morning'),
+(10,'Mid-morning'),
+(11,'Late morning'),
+(12,'Late morning'),
+(13,'Early afternoon'),
+(14,'Early afternoon'),
+(15,'Mid-afternoon'),
+(16,'Mid-afternoon'),
+(17,'Late afternoon'),
+(18,'Late afternoon'),
+(19,'Early evening'),
+(20,'Early evening'),
+(21,'Late evening'),
+(22,'Late evening'),
+(23,'Late evening'),
+(0,'Late at night'),
+(1,'Late at night'),
+(2,'Late at night'),
+(3,'Toward morning'),
+(4,'Toward morning'),
+(5,'Toward morning');
