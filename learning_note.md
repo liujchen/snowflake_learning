@@ -505,3 +505,75 @@ select current_user();
 
 select $1 from @uni_kishore/kickoff
 (file_format => FF_JSON_LOGS);
+
+##Copy data into local table
+copy into ags_game_audience.raw.game_logs
+from @uni_kishore/kickoff
+file_format = (format_name = FF_JSON_LOGS);
+
+
+Did you notice that we did not write out the file name in the FROM line? This is because there is only one file in the kickoff folder. A COPY INTO statement like the one shown above will load EVERY file in the folder if more than one file is there, and the file name is not specified. This will come in very handy later in the course. 
+
+There are other ways to specify what files should be loaded and Snowflake gives you a lot of tools to further specify what will be loaded, but for now accept the general rule that by not naming the file, you are asking SNOWFLAKE to attempt to load ALL files the stage or stage/folder location. 
+
+
+
+select RAW_LOG:agent::text as AGENT,
+RAW_LOG:user_event::text as USER_EVENT,
+RAW_LOG:user_login::text as user_login,
+RAW_LOG:datetime_iso8601::TIMESTAMP_NTZ as datetime,
+*
+from  game_logs;
+
+## TIMESTAMP_NTZ (no time zone)
+You'll need to know a few more initialisms for this lesson. NTZ means "No Time Zone." LTZ means "Local Time Zone." 
+
+Pacific Standard Time
+Time zone in Los Angeles, CA, USA (GMT-8)
+Thursday, 30 November 2023, 3:29 am
+
+CREATE OR REPLACE FUNCTION GET_CURRENT_TIMEZONE()
+RETURNS VARCHAR
+LANGUAGE JAVASCRIPT
+AS 
+$$
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return timezone;
+$$
+;
+
+select GET_CURRENT_TIMEZONE();
+America/Los_Angeles
+
+2023-11-30 03:30:53.828 -0800  (American time)
+
+Kishore runs the command SELECT current_timestamp(); in a worksheet (in October) and sees -0600 as part of the results.
+
+-0600 is the same thing as UTC-6.
+
+This means Kishore's Snowflake session is currently using the Denver time zone. 
+
+What time zone is your Snowflake Trial Account using?  Run the current_timestamp() command to find out. Our guess is that you'll see either UTC-7 (-0700) or UTC-8 (-0800) depending on the time of year it is (daylight savings time).
+
+We can guess this because all Snowflake Trial Account use "America/Los_Angeles" as the default. This may be because Snowflake was founded in San Mateo, California, USA. 
+
+--what time zone is your account(and/or session) currently set to? Is it -0700?
+select current_timestamp();
+
+--worksheets are sometimes called sessions -- we'll be changing the worksheet time zone
+alter session set timezone = 'UTC';
+select current_timestamp();
+
+--how did the time differ after changing the time zone for the worksheet?
+alter session set timezone = 'Africa/Nairobi';
+select current_timestamp();
+
+alter session set timezone = 'Pacific/Funafuti';
+select current_timestamp();
+
+alter session set timezone = 'Asia/Shanghai';
+select current_timestamp();
+
+--show the account parameter called timezone
+show parameters like 'timezone';
+
