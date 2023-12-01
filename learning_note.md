@@ -709,3 +709,133 @@ values
 (3,'Toward morning'),
 (4,'Toward morning'),
 (5,'Toward morning');
+
+
+create task load_logs_enhanced
+    warehouse = 'COMPUTE_WH'
+    schedule = '5 minute'
+    -- <session_parameter> = <value> [ , <session_parameter> = <value> ... ] 
+    -- user_task_timeout_ms = <num>
+    -- copy grants
+    -- comment = '<comment>'
+    -- after <string>
+  -- when <boolean_expr>
+  as
+    select 'hello';
+
+
+create or replace task load_logs_enhanced
+    warehouse = 'COMPUTE_WH'
+    schedule = '5 minute'
+    -- <session_parameter> = <value> [ , <session_parameter> = <value> ... ] 
+    -- user_task_timeout_ms = <num>
+    -- copy grants
+    -- comment = '<comment>'
+    -- after <string>
+  -- when <boolean_expr>
+  as
+    create or replace table ags_game_audience.enhanced.logs_enhanced as(
+SELECT logs.ip_address 
+, logs.user_login as GAMER_NAME
+, logs.user_event as GAME_EVENT_NAME
+, logs.datetime_iso8601 as GAME_EVENT_UTC
+, city
+, region
+, country
+, timezone as GAMER_LTZ_NAME
+, convert_timezone('UTC',timezone,logs.datetime_iso8601) as game_events_ltz
+, dayname(game_events_ltz) as DOW_NAME
+, TOD_NAME 
+from AGS_GAME_AUDIENCE.RAW.LOGS logs
+JOIN IPINFO_GEOLOC.demo.location loc 
+ON IPINFO_GEOLOC.public.TO_JOIN_KEY(logs.ip_address) = loc.join_key
+AND IPINFO_GEOLOC.public.TO_INT(logs.ip_address) 
+BETWEEN start_ip_int AND end_ip_int
+JOIN ags_game_audience.raw.time_of_day_lu lu
+ON Hour(game_events_ltz) = lu.hour
+)
+;
+
+
+Snowflake has some built in help for IDEMPOTENCY, especially when the file is first picked up from the stage, and we'll talk more about how Snowflake can help with that, but right now we'll focus on making this particular step IDEMPOTENT.  
+
+
+Another method that was used in the early days of data warehousing was a database replace. A whole new warehouse would be built each night and when it was complete, the old one would be given an archival name, and the new one would be given the standard name.
+
+Snowflake has the ability to CLONE databases, schemas, tables and more which means this sort of switching out can be done very easily but this isn't really a version of the old-school rebuild and replace. It's pretty significantly different. That's okay, because almost no orgs rebuild their warehouses from scratch each night anymore.
+
+On the subject of Snowflake's cloning capabilities, some organizations use cloning to create test and dev copies of entire databases, schemas or just a few of the objects within them.  So, after using modern update methods, you could delete your test and dev instances each night and replace them with fresh clones of your production warehouse. 
+
+Cloning is a very powerful tool, doesn't cost much, and doesn't take long. Cloning is more efficient than copying (you can read more about cloning at docs.snowflake.com).  
+
+We can also use cloning to make back ups of things we feel more comfortable having a safe copy of while we are in heavy development. Let's make a back up copy of our LOGS_ENHANCED table.  We're about to start testing some complex logic and we might want to look back at this table, later. 
+
+
+##Merge##
+
+
+MERGE INTO ENHANCED.LOGS_ENHANCED e
+USING (SELECT logs.ip_address 
+, logs.user_login as GAMER_NAME
+, logs.user_event as GAME_EVENT_NAME
+, logs.datetime_iso8601 as GAME_EVENT_UTC
+, city
+, region
+, country
+, timezone as GAMER_LTZ_NAME
+, CONVERT_TIMEZONE( 'UTC',timezone,logs.datetime_iso8601) as game_event_ltz
+, DAYNAME(game_event_ltz) as DOW_NAME
+, TOD_NAME
+from ags_game_audience.raw.LOGS logs
+JOIN ipinfo_geoloc.demo.location loc 
+ON ipinfo_geoloc.public.TO_JOIN_KEY(logs.ip_address) = loc.join_key
+AND ipinfo_geoloc.public.TO_INT(logs.ip_address) 
+BETWEEN start_ip_int AND end_ip_int
+JOIN ags_game_audience.raw.TIME_OF_DAY_LU tod
+ON HOUR(game_event_ltz) = tod.hour) r
+ON r.GAMER_NAME = e.GAMER_NAME
+and r.GAMER_NAME = e.GAMER_NAME
+and r.GAME_EVENT_NAME = e.GAME_EVENT_NAME
+WHEN NOT MATCHED THEN
+insert(IP_ADDRESS, GAMER_NAME, GAME_EVENT_NAME, GAME_EVENT_UTC, CITY, REGION, COUNTRY, GAMER_LTZ_NAME, GAME_EVENT_LTZ, DOW_NAME, TOD_NAME)
+values(IP_ADDRESS, GAMER_NAME, GAME_EVENT_NAME, GAME_EVENT_UTC, CITY, REGION, COUNTRY, GAMER_LTZ_NAME, GAME_EVENT_LTZ, DOW_NAME, TOD_NAME)
+
+
+As Desmond Tutu famously said, The way to eat an elephant is one bite at a time. 
+
+select GRADER(step, (actual = expected), actual, expected, description) as graded_results from
+(
+SELECT
+'DNGW04' as step
+ ,( select count(*)/iff (count(*) = 0, 1, count(*))
+  from table(ags_game_audience.information_schema.task_history
+              (task_name=>'LOAD_LOGS_ENHANCED'))) as actual
+ ,1 as expected
+ ,'Task exists and has been run at least once' as description 
+ ); 
+
+By "data pipeline" we mean:
+
+A series of steps...
+that move data from one place to another...
+in a repeated way.
+
+
+
+
+ 📓 Idempotent COPY INTO
+So, did you notice that the COPY INTO is smart enough to know which files it already loaded and it doesn't load the same file, twice?
+
+Snowflake is designed like this to help you. Without any special effort on your part, you have a process that doesn't double-load files.  In other words, it automatically helps you keep your processes IDEMPOTENT.
+
+But, what if, for some crazy reason, you wanted to double-load your files? 
+
+You could add a FORCE=TRUE; as the last line of your COPY INTO statement and then you would double the number of rows in your table. 
+
+Then, what if you wanted to start over and load just one copy of each file?
+
+You could TRUNCATE TABLE PIPELINE_LOGS; , set FORCE=FALSE and run your COPY INTO again. 
+
+ 
+
+The COPY INTO is very smart, which makes it useful and efficient!! We aren't going to use the FORCE command in this workshop. We aren't going to truncate and reload to prove the stage and COPY INTO are colluding in your favor (they really do!), but we wanted you to know they are available to you for special situations. 
