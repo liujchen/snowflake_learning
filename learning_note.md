@@ -839,3 +839,57 @@ You could TRUNCATE TABLE PIPELINE_LOGS; , set FORCE=FALSE and run your COPY INTO
  
 
 The COPY INTO is very smart, which makes it useful and efficient!! We aren't going to use the FORCE command in this workshop. We aren't going to truncate and reload to prove the stage and COPY INTO are colluding in your favor (they really do!), but we wanted you to know they are available to you for special situations. 
+
+
+Data up to 45 minute latency
+
+
+## 2 Dec 2023 ##
+
+--turn off the other task (we won't need it anymore)
+alter task AGS_GAME_AUDIENCE.RAW.LOAD_LOGS_ENHANCED suspend;
+
+--Create a new task that uses the MERGE you just tested
+create or replace task AGS_GAME_AUDIENCE.RAW.CDC_LOAD_LOGS_ENHANCED
+	USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE='XSMALL'
+	SCHEDULE = '5 minutes'
+	as 
+MERGE INTO AGS_GAME_AUDIENCE.ENHANCED.LOGS_ENHANCED e
+USING (
+        SELECT cdc.ip_address 
+        , cdc.user_login as GAMER_NAME
+        , cdc.user_event as GAME_EVENT_NAME
+        , cdc.datetime_iso8601 as GAME_EVENT_UTC
+        , city
+        , region
+        , country
+        , timezone as GAMER_LTZ_NAME
+        , CONVERT_TIMEZONE( 'UTC',timezone,cdc.datetime_iso8601) as game_event_ltz
+        , DAYNAME(game_event_ltz) as DOW_NAME
+        , TOD_NAME
+        from ags_game_audience.raw.ed_cdc_stream cdc
+        JOIN ipinfo_geoloc.demo.location loc 
+        ON ipinfo_geoloc.public.TO_JOIN_KEY(cdc.ip_address) = loc.join_key
+        AND ipinfo_geoloc.public.TO_INT(cdc.ip_address) 
+        BETWEEN start_ip_int AND end_ip_int
+        JOIN AGS_GAME_AUDIENCE.RAW.TIME_OF_DAY_LU tod
+        ON HOUR(game_event_ltz) = tod.hour
+      ) r
+ON r.GAMER_NAME = e.GAMER_NAME
+AND r.GAME_EVENT_UTC = e.GAME_EVENT_UTC
+AND r.GAME_EVENT_NAME = e.GAME_EVENT_NAME 
+WHEN NOT MATCHED THEN 
+INSERT (IP_ADDRESS, GAMER_NAME, GAME_EVENT_NAME
+        , GAME_EVENT_UTC, CITY, REGION
+        , COUNTRY, GAMER_LTZ_NAME, GAME_EVENT_LTZ
+        , DOW_NAME, TOD_NAME)
+        VALUES
+        (IP_ADDRESS, GAMER_NAME, GAME_EVENT_NAME
+        , GAME_EVENT_UTC, CITY, REGION
+        , COUNTRY, GAMER_LTZ_NAME, GAME_EVENT_LTZ
+        , DOW_NAME, TOD_NAME);
+        
+--Resume the task so it is running
+alter task AGS_GAME_AUDIENCE.RAW.CDC_LOAD_LOGS_ENHANCED resume;
+
+## workshop 3
